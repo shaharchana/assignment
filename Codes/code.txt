@@ -1,0 +1,133 @@
+Question 1: Prepare an uniform dataframe using pandas that contains all the independent and dependent variables at a monthly scale.
+
+import pandas as pd
+import glob
+import os
+
+# Define the directory where the CSV files are located
+csv_dir = 'C:\\Users\\Archana Kumari\\OneDrive\\Desktop\\Assignment\\Data\\data'
+
+# Create a list of CSV files in the directory
+csv_files = glob.glob(csv_dir + os.sep + '*.csv')
+
+# Loop through the CSV files and append their data to the list
+
+# Create an empty dataframe to store the merged data
+climatic_data = pd.DataFrame()
+for file in csv_files:
+    # Read the CSV file into a dataframe
+    df1 = pd.read_csv(file)
+    
+    # Convert the 'DateTime' column to datetime format and set it as the index
+    df1['DateTime'] = pd.to_datetime(df1['DateTime'])
+    df1.set_index('DateTime', inplace=True)
+    
+    # Merge the dataframe with the combined dataframe based on the common column
+    if climatic_data.empty:
+        climatic_data = df1
+    else:
+        climatic_data = pd.merge(climatic_data, df1, on='DateTime', how='outer')
+climatic_data.to_csv('monthly_climatic_data.csv')
+
+# Read the Excel file into a dataframe
+df2 = pd.read_excel('C:\\Users\\Archana Kumari\\OneDrive\\Desktop\\Assignment\\Data\\data\\GWL_Data.xlsx')
+# Convert the 'DateTime' column to datetime format and set it as the index
+df2['DateTime'] = pd.to_datetime(df2['DateTime'])
+df2.set_index('DateTime', inplace=True)
+# Resample the climate data to monthly frequency
+monthly_gwl_data = df2.resample('MS').mean()
+monthly_gwl_data.to_csv('gwl_data.csv')
+
+# load the data
+climatic_data=pd.read_csv('monthly_climatic_data.csv')
+gwl_data=pd.read_csv('gwl_data.csv')
+
+# Merge the two monthly dataframes on their index and set 'DateTime' as index
+monthly_data = pd.merge(climatic_data, gwl_data, how='inner')
+monthly_data=monthly_data.set_index('DateTime')
+
+# Save the monthly_data dataframe to a CSV file
+monthly_data.to_csv('monthly_data.csv')
+
+
+
+
+Question 2: Perform basic data analysis (such as scatter plots, histograms, etc.) between the independent and dependent variables.
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load the data
+monthly_data = pd.read_csv('monthly_data.csv',index_col='DateTime')
+
+#Renaming the columns to smaller names
+monthly_data=monthly_data.rename(columns={'(mm) Actual ET (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(mm) Actual ET',
+                                  '(mm) Grass Ref ET (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(mm) Grass Ref ET',
+                                  '(mm) Precipitation (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(mm) Precipitation',
+                                  '(mm) Soil Moisture (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(mm) Soil Moisture',
+                                  '(deg C) Max Temperature (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(deg C) Max Temperature',
+                                  '(deg C) Min Temperature (TerraClimate) at -98.7092E,29.7839N, 1958-01-01 to 2019-12-31':'(deg C) Min Temperature'
+                                  })
+ 
+# Plot the pairwise relationships between the variables using a pairplot
+sns.pairplot(data=monthly_data, x_vars=['(mm) Actual ET','(mm) Grass Ref ET','(mm) Precipitation','(mm) Soil Moisture',
+                                        '(deg C) Max Temperature','(deg C) Min Temperature'],y_vars=['GWL(m)'])
+plt.show()
+
+# plot the feature distribution in seperate graph
+plt.figure(figsize=(20,10))
+for i, col in enumerate(monthly_data.columns):
+    ax = plt.subplot(3,3, i+1)
+    sns.histplot(data=monthly_data, x=col)
+plt.suptitle('Histogram of Features')
+plt.show()
+
+# plot the representation of the feature distribution in seperate graph
+plt.figure(figsize=(20,10))
+for i, col in enumerate(monthly_data.columns):
+    ax = plt.subplot(3,3, i+1)
+    sns.boxplot(data=monthly_data, x=col)
+plt.suptitle('Boxplot of Numeric Features')
+plt.show()
+
+# Plot the correlation matrix heatmap
+sns.heatmap(data=monthly_data.corr(), cmap='coolwarm', annot=True)
+
+
+
+
+Question 3: Develop two AI models (of our choice) to predict the independent variable using the dependent variables as input. Measure and compare the performance of the models using a 3-fold cross validation technique and report the results in terms of the correlation coefficient (R2) and root mean squared error (RMSE).
+
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+from sklearn.model_selection import cross_validate
+from sklearn.metrics import r2_score, mean_squared_error
+
+# Load the data
+monthly_data = pd.read_csv('monthly_data.csv',index_col='DateTime')
+
+# define independent and dependent parameters 
+X = monthly_data.drop(columns=['GWL(m)'] , axis=1)
+y = monthly_data['GWL(m)']
+
+# define the models
+models = [('Random Forest Regression', RandomForestRegressor(n_estimators=100, random_state=1)), 
+          ('Support Vector Regression', SVR(kernel='rbf', C=100, gamma=0.1, epsilon=.1))]
+
+# evaluate the models using 3-fold cross-validation
+for name, model in models:
+    scores = cross_validate(model, X, y, cv=3, scoring=['r2', 'neg_root_mean_squared_error'])
+    r2_mean = np.mean(scores['test_r2'])
+    rmse_mean = -np.mean(scores['test_neg_root_mean_squared_error'])
+    # Report the results
+    print('Model:', model.__class__.__name__)
+    print('R2 scores:', r2_mean)
+    print('Mean R2 score:', r2_mean.mean())
+    print('RMSE scores:', rmse_mean)
+    print('Mean RMSE score:', rmse_mean.mean())
+    print()
+
+
